@@ -1,142 +1,205 @@
 import MySQLdb
 from pyobvector import *
+from sqlalchemy import Column, BigInteger, Text, String, DateTime, func
+from typing import Optional, List
 
 import json
+import uuid
 import os, sys
 currunt_dir = os.path.dirname(__file__)
 sys.path.append(os.path.join(currunt_dir, ".."))
 from utils.embedding import EmbeddingModel
+from utils.chunk_split import semantic_split
 
 with open(os.path.join(currunt_dir, "..", "config", "sql_config.json"), "r") as f:
     OCEANBASE_CONFIG = json.load(f)
 
+def delete_database(database_name: str = "search_rag") -> None:
+    conn = MySQLdb.connect(**OCEANBASE_CONFIG)
+    conn.autocommit(True)
+    cursor = conn.cursor()
+    try:
+        cursor.execute(f"DROP DATABASE IF EXISTS {database_name};")
+        print(f"[OK] 数据库 {database_name} 删除或不存在")
+    except MySQLdb.Error as e:
+        print("[ERROR] 删除数据库失败:", e)
+    finally:
+        cursor.close()
+        conn.close()
+
+def check_oceanbase_version():
+    conn = MySQLdb.connect(**OCEANBASE_CONFIG)
+    cursor = conn.cursor()
+    cursor.execute("SELECT @@version")
+    version = cursor.fetchone()[0]
+    print(f"OceanBase 版本: {version}")
+    cursor.close()
+    conn.close()   
+
 class RAGDatabase:
-    def __init__(self, table: str, dim: int = 384):
+    def __init__(self, database: str = "search_rag", dim: int = 384):
         """
-        :param table: 要操作的表名
+        :param database: 要操作的数据库
         :param dim: 嵌入向量维度
         """
-        self.db = MySQLdb.connect(**OCEANBASE_CONFIG)
-        self.db.autocommit(False)
-        self.vec_client = ObVecClient(
+        self.database = database
+        if not self._database_create():
+            raise Exception(f"[ERROR] 数据库 {self.database} 出错")
+
+        self.client = ObVecClient(
             uri=OCEANBASE_CONFIG["host"] + ":" + str(OCEANBASE_CONFIG["port"]), 
             user=OCEANBASE_CONFIG["user"], 
-            db_name=OCEANBASE_CONFIG["database"],
-            password=OCEANBASE_CONFIG["password"]
+            db_name=self.database
         )
-
-        self.table = table
         self.dim = dim
         
-        self.create()
+        self._table_create()
         self.embedder = EmbeddingModel()
 
     def __del__(self):
+        pass
+    
+    def _database_create(self) -> None:
+        conn = MySQLdb.connect(**OCEANBASE_CONFIG)
+        conn.autocommit(True)
+        cursor = conn.cursor()
+        success = True
         try:
-            self.db.close()
-        except Exception:
-            pass
+            cursor.execute(f"CREATE DATABASE IF NOT EXISTS {self.database};")
+            print(f"[OK] 数据库 {self.database} 创建或已存在")
+        except MySQLdb.Error as e:
+            print("[ERROR] 创建数据库失败:", e)
+            success = False
+        finally:
+            cursor.close()
+            conn.close()
+            return success
 
-    def create(self) -> None:
+    def _table_create(self) -> None:
         """
         创建RAG数据表
-        字段名	        类型	        说明
-        id          INT             UNSIGNED AUTO_INCREMENT	主键
-        chunk_text	TEXT	        存储文本片段
-        embedding	VECTOR(384)	    原生向量列（384维，可改）
-        source      VARCHAR(128)	来源标识：URL / 书籍ID
-        sub_id	    VARCHAR(128)	来源内部标识：如章节+段落编号
-        created_at	DATETIME	    插入时间
         """
-        sql = f"""
-        CREATE TABLE IF NOT EXISTS {self.table} (
-             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-             chunk_text TEXT NOT NULL,
-             embedding VECTOR({self.dim}) NOT NULL,
-             source VARCHAR(128),
-             sub_id VARCHAR(128),
-             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-             PRIMARY KEY(id)
-        ) ENGINE=OCEANBASE;
-        """
-        with self.db.cursor() as cur:
-            cur.execute(sql)
-        self.db.commit()
-        print(f"[OK] Table `{self.table}` ready.")
-        self.create_index(
-            idx_name=f"{self.table}_hnsw_idx",
-            distance="l2",
-            idx_type="hnsw",
-            lib="vsag"
+        # 原文表
+        docs_cols = [
+            Column('document_id', String(36), primary_key=True),
+            Column('created_at', DateTime, server_default=func.now()),
+            Column('source', String(128)),
+            Column('author', String(128)),
+            Column('title', String(256)),
+            Column('content', Text),
+        ]
+        self.client.create_table('original', columns=docs_cols)
+
+        # 章节表
+        section_cols = [
+            Column('section_id', String(36), primary_key=True),
+            Column('document_id', String(36)),
+            Column('text', Text)
+        ]
+        self.client.create_table('section', columns=section_cols)
+
+        # 分块表
+        chunks_cols = [
+            Column('id', BigInteger, primary_key=True, autoincrement=True),
+            Column('section_id', String(36)),
+            Column('chunk_text', Text, nullable=False),
+            Column('embedding', VECTOR(self.dim), nullable=False),
+        ]
+        self.client.create_table("chunks", columns=chunks_cols)
+        print(f"[OK] Tables created or exists.")
+
+        # 向量索引
+        idx_name = f"embedding_hnsw_idx"
+        self.client.create_index(
+            "chunks",
+            is_vec_index=True,
+            index_name=idx_name,
+            column_names=['embedding'],
+            vidx_params="distance=l2, type=hnsw, lib=vsag",
         )
+        print(f"[OK] Vector index '{idx_name}' ready.")
 
-    def create_index(self,
-                     idx_name: str,
-                     distance: str = "l2",
-                     idx_type: str = "hnsw",
-                     lib: str = "vsag") -> None:
-        """
-        单独创建向量索引：
-          - 先检测 embedding 列上是否已有向量索引，若有则跳过
-          - 支持参数：distance=l2|inner_product, type=hnsw|hnsw_sq|ivf_flat,
-                       lib=vsag|ob, m, ef_construction, ef_search
-        """
-        # 1) 检查已有索引
-        with self.db.cursor() as cur:
-            cur.execute(f"SHOW INDEX FROM {self.table}")
-            for row in cur.fetchall():
-                # row[4] 是 Column_name, row[10] 是 Index_type
-                if row[4] == "embedding" and row[10] == "VECTOR":
-                    print(f"[WARN] Table `{self.table}` column `embedding` already has a vector index, skip creation.")
-                    return
+    def insert_data(self, content: str, title: str = None, source: Optional[str] = None, author: Optional[str] = None):
+        doc_id = str(uuid.uuid4())
+        self.client.insert("original", data=[{
+            "document_id": doc_id,
+            "title": title,
+            "content": content,
+            "source": source,
+            "author": author
+        }])
 
-        # 2) 组装 WITH 子句
-        clauses = [f"distance={distance}", f"type={idx_type}", f"lib={lib}"]
-        params = ", ".join(clauses)
+        for section_text in semantic_split(content, mode="section"):
+            section_id = str(uuid.uuid4())
+            self.client.insert("section", data=[{
+                "section_id": section_id,
+                "document_id": doc_id,
+                "text": section_text
+            }])
+            chunks = semantic_split(section_text, mode="chunk")
+            chunk_records = []
+            for chunk_text in chunks:
+                embedding = self.embedder.embed(chunk_text)
+                chunk_records.append({
+                    "section_id": section_id,
+                    "chunk_text": chunk_text,
+                    "embedding": embedding
+                })
+            self.client.insert("chunks", data=chunk_records)
+        print(f"[OK] 文档 '{title}' 分块插入完成。")
 
-        sql = f"""
-        CREATE VECTOR INDEX {idx_name}
-          ON {self.table} (embedding)
-          WITH ({params});
-        """
-        # 3) 尝试创建
-        with self.db.cursor() as cur:
-            cur.execute(sql)
-        self.db.commit()
-        print(f"[OK] Index `{idx_name}` on `{self.table}` created.")
-    
-    def insert(self, text, source=None, sub_id=None):
-        vec = self.embedder.embed(text)
-        data = {
-            "chunk_text": text, 
-            "source": source, 
-            "sub_id": sub_id,
-            "embedding": vec
-        }
-        self.vec_client.insert(self.table, data=[data])
-
-    def query(self, text, top_k=5, filters=None):
+    def query(self, text: str, top_k: int = 5):
         qvec = self.embedder.embed(text)
-        res = self.vec_client.ann_search(
-            self.table, 
-            vec_data=qvec, 
-            vec_column_name='embedding',
+        res = self.client.ann_search(
+            "chunks",
+            vec_data=qvec,
+            vec_column_name="embedding",
             distance_func=l2_distance,
             topk=top_k,
             with_dist=True,
-            output_column_names=["chunk_text", "source", "sub_id"],
-            filter_conditions=filters or {}
+            output_column_names=["chunk_text", "section_id"]
         )
-        results_list = res.all()
-        rank = sorted(results_list, key=lambda x: x[-1], reverse=True)
-        return rank
+        results = []
+        for chunk_text, section_id, dist in res.all():
+            section = self.client.get(
+                "section", 
+                ids=section_id, 
+                output_column_name=["document_id", "text"]
+                ).all()
+            doc_id = section[0]
+            doc = self.client.get(
+                "original", 
+                ids=doc_id, 
+                output_column_name=["content", "source", "author", "title"]
+                ).all()
+            results.append({
+                "chunk": chunk_text,
+                "section": section[1],
+                "document": doc[0],
+                "title": doc[3],
+                "source": doc[1],
+                "author": doc[2],
+                "similarity": dist
+            })
+        return results
 
 # 使用示例
 if __name__ == "__main__":
-    print(OCEANBASE_CONFIG)
+    # check_oceanbase_version()
+    client = ObVecClient(
+        uri=OCEANBASE_CONFIG["host"] + ":" + str(OCEANBASE_CONFIG["port"]), 
+        user=OCEANBASE_CONFIG["user"], 
+        db_name="search_rag"
+    )
+    res = client.get(
+        "test_rag",
+        1,
+        output_column_name=["chunk_text","source","sub_id"]).all()
+    print(res)
+    # print(OCEANBASE_CONFIG)
     # import time
     # t1 = time.time()
-    # rag = RAGDatabase(table="test_rag")
+    # rag = RAGDatabase()
     # t2 = time.time()
     # print(f"RAGDatabase 初始化耗时: {t2 - t1:.2f}秒")
     # rag.insert("新测试！", source="https://example.com", sub_id="p1")
