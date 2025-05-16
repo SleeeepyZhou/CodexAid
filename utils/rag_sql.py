@@ -1,7 +1,8 @@
 import MySQLdb
 from pyobvector import *
 from sqlalchemy import Column, BigInteger, Text, String, DateTime, func
-from typing import Optional, List
+from sqlalchemy.dialects.mysql import MEDIUMTEXT
+from typing import Optional
 
 import json
 import uuid
@@ -9,7 +10,7 @@ import os, sys
 currunt_dir = os.path.dirname(__file__)
 sys.path.append(os.path.join(currunt_dir, ".."))
 from utils.embedding import EmbeddingModel
-from utils.chunk_split import semantic_split
+from data.chunk_split import semantic_split
 
 with open(os.path.join(currunt_dir, "..", "config", "sql_config.json"), "r") as f:
     OCEANBASE_CONFIG = json.load(f)
@@ -49,6 +50,7 @@ class RAGDatabase:
         self.client = ObVecClient(
             uri=OCEANBASE_CONFIG["host"] + ":" + str(OCEANBASE_CONFIG["port"]), 
             user=OCEANBASE_CONFIG["user"], 
+            password=OCEANBASE_CONFIG["password"] if "password" in OCEANBASE_CONFIG else None,
             db_name=self.database
         )
         self.dim = dim
@@ -84,9 +86,9 @@ class RAGDatabase:
             Column('document_id', String(36), primary_key=True),
             Column('created_at', DateTime, server_default=func.now()),
             Column('source', String(128)),
-            Column('author', String(128)),
+            Column('description', Text),
             Column('title', String(256)),
-            Column('content', Text),
+            Column('content', MEDIUMTEXT),
         ]
         self.client.create_table('original', columns=docs_cols)
 
@@ -119,24 +121,24 @@ class RAGDatabase:
         )
         print(f"[OK] Vector index '{idx_name}' ready.")
 
-    def insert_data(self, content: str, title: str = None, source: Optional[str] = None, author: Optional[str] = None):
+    def insert_data(self, content: str, title: str = None, source: Optional[str] = None, description: Optional[str] = None):
         doc_id = str(uuid.uuid4())
         self.client.insert("original", data=[{
             "document_id": doc_id,
             "title": title,
             "content": content,
             "source": source,
-            "author": author
+            "description": description
         }])
 
-        for section_text in semantic_split(content, mode="section"):
+        for section_text in semantic_split(content, mode="legal_section"):
             section_id = str(uuid.uuid4())
             self.client.insert("section", data=[{
                 "section_id": section_id,
                 "document_id": doc_id,
                 "text": section_text
             }])
-            chunks = semantic_split(section_text, mode="chunk")
+            chunks = semantic_split(section_text, mode="legal_chunk")
             chunk_records = []
             for chunk_text in chunks:
                 embedding = self.embedder.embed(chunk_text)
@@ -154,7 +156,7 @@ class RAGDatabase:
             "chunks",
             vec_data=qvec,
             vec_column_name="embedding",
-            distance_func=l2_distance,
+            distance_func=func.l2_distance,
             topk=top_k,
             with_dist=True,
             output_column_names=["chunk_text", "section_id"]
@@ -165,50 +167,67 @@ class RAGDatabase:
                 "section", 
                 ids=section_id, 
                 output_column_name=["document_id", "text"]
-                ).all()
+                ).all()[0]
             doc_id = section[0]
             doc = self.client.get(
                 "original", 
                 ids=doc_id, 
-                output_column_name=["content", "source", "author", "title"]
-                ).all()
+                output_column_name=["content", "source", "description", "title"]
+                ).all()[0]
             results.append({
                 "chunk": chunk_text,
                 "section": section[1],
                 "document": doc[0],
                 "title": doc[3],
                 "source": doc[1],
-                "author": doc[2],
+                "description": doc[2],
                 "similarity": dist
             })
         return results
 
-# 使用示例
 if __name__ == "__main__":
-    # check_oceanbase_version()
-    client = ObVecClient(
-        uri=OCEANBASE_CONFIG["host"] + ":" + str(OCEANBASE_CONFIG["port"]), 
-        user=OCEANBASE_CONFIG["user"], 
-        db_name="search_rag"
-    )
-    res = client.get(
-        "test_rag",
-        1,
-        output_column_name=["chunk_text","source","sub_id"]).all()
-    print(res)
+    # delete_database("legal_data")
+    check_oceanbase_version()
+    # client = ObVecClient(
+    #     uri=OCEANBASE_CONFIG["host"] + ":" + str(OCEANBASE_CONFIG["port"]), 
+    #     user=OCEANBASE_CONFIG["user"], 
+    #     db_name="search_rag"
+    # )
+    # res = client.get(
+    #     "test_rag",
+    #     1,
+    #     output_column_name=["chunk_text","source","sub_id"]).all()
+    # print(res)
     # print(OCEANBASE_CONFIG)
-    # import time
-    # t1 = time.time()
-    # rag = RAGDatabase()
-    # t2 = time.time()
-    # print(f"RAGDatabase 初始化耗时: {t2 - t1:.2f}秒")
+
+
+    import time
+    t1 = time.time()
+    rag = RAGDatabase("legal_data_2", 1024)
+    t2 = time.time()
+    print(f"RAGDatabase 初始化耗时: {t2 - t1:.2f}秒")
+
+    # create rag
+    # from data.chunk_split import extract_title_and_description
+    # md_folder = "E:/AI/Chat/Qwen3/data/markdown"
+    # for filename in os.listdir(md_folder):
+
+    #     with open(os.path.join(md_folder, filename), "r", encoding="utf-8") as f:
+    #         full_text = f.read()
+    #     title, des, body = extract_title_and_description(full_text)
+    #     rag.insert_data(body, os.path.splitext(filename)[0], os.path.splitext(filename)[0], des)
+    #     t_temp = time.time()
+    #     print(f"RAGDatabase 此轮耗时: {t_temp - t2:.2f}秒")
+    # t3 = time.time()
+    # print(f"RAGDatabase 总耗时: {t3 - t2:.2f}秒")
+    
     # rag.insert("新测试！", source="https://example.com", sub_id="p1")
     
-    # results = rag.query("你好", top_k=3)
-    # t3 = time.time()
-    # print(f"RAGDatabase 查询耗时: {t3 - t2:.2f}秒")
-    # print("查询结果：")
+    # qurey test
 
-    # print(results)
-    # for result in results:
-    #     print(result)
+    results = rag.query("劳务以及加班", top_k=5)
+    t3 = time.time()
+    print(f"RAGDatabase 查询耗时: {t3 - t2:.2f}秒")
+    print("查询结果：")
+    for result in results:
+        print(result["chunk"], "\n", "="*5, ">>", result["similarity"])

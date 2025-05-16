@@ -89,7 +89,7 @@ def download_pdf_model():
 
 # Embedding model
 def download_embedding():
-    model_name = "sentence-transformers/all-MiniLM-L6-v2"
+    model_name = "BAAI/bge-m3"
     model_dir = model_name.split("/")[-1]
     download_dir = os.path.join(current_dir, "..", "models", model_dir)
 
@@ -99,7 +99,7 @@ def download_embedding():
             local_dir=download_dir,
             max_workers=8,
             # allow_patterns="Qwen3-30B-A3B-Q4_K_M.gguf",
-            ignore_patterns=["onnx/", "openvino/"],
+            ignore_patterns=["onnx/", "imgs/"],
         )
         print("Model files downloaded successfully.")
         return True
@@ -126,4 +126,3 @@ def download_model():
 
 if __name__ == "__main__":
     download_embedding()
-    download_model()

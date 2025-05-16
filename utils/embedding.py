@@ -4,7 +4,7 @@ from sentence_transformers import SentenceTransformer
 class EmbeddingModel:
     def __init__(self):
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        model_path = os.path.normpath(os.path.join(current_dir, "..", "models", "all-MiniLM-L6-v2"))
+        model_path = os.path.normpath(os.path.join(current_dir, "..", "models", "bge-m3"))
         model_path = model_path.replace("\\", "/")
 
         if not os.path.exists(model_path):

@@ -3,6 +3,7 @@ import json
 import requests
 import os, sys
 import subprocess
+from typing import List, Dict
 
 current_dir = os.path.dirname(__file__)
 
@@ -82,14 +83,8 @@ class LLMModel:
             "reasoning": temp[0].strip(),
             "answer": temp[1].strip()
         }
-
-    def chat(self, prompt: str, role: str = "user", **params) -> dict:
-        """
-        Standard chat completion.
-        messages: list of {"role": ..., "content": ...}
-        params: other OpenAI parameters (e.g., max_tokens)
-        """
-        messages = [{"role": role, "content": prompt}]
+    
+    def dialogue(self, messages, **params) -> dict:
         params.pop('stream', None)
         payload = {
             "model": self.model_name,
@@ -102,6 +97,15 @@ class LLMModel:
         resp.raise_for_status()
         content = resp.json()["choices"][0]["message"]["content"]
         return self._split_reasoning(content)
+
+    def chat(self, prompt: str, role: str = "user", **params) -> dict:
+        """
+        Standard chat completion.
+        messages: list of {"role": ..., "content": ...}
+        params: other OpenAI parameters (e.g., max_tokens)
+        """
+        messages = [{"role": role, "content": prompt}]
+        return self.dialogue(messages, **params)
 
     def stream_chat(self, prompt: str, role: str = "user", **params):
         """
@@ -167,6 +171,51 @@ class LLMModel:
             except subprocess.TimeoutExpired:
                 self.proc.kill()
     
+    def __del__(self):
+        self.close()
+
+from openai import OpenAI
+class OpenAILLM:
+    def __init__(
+            self,
+            model_name: str = "gpt-4o-mini",
+            api_key: str = None,
+            base_url: str = "https://api.openai.com/v1",
+            timeout: int = 30
+        ):
+        self.model_name = model_name
+        self.timeout = timeout
+        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+        if not self.api_key:
+            raise ValueError("OpenAI API key not provided and not found in environment variables.")
+
+        self.model = OpenAI(
+            models=model_name,
+            api_key=self.api_key,
+        )
+        OpenAI.api_key = self.api_key
+        openai.base_url = base_url
+
+    def dialogue(self, messages: List[Dict[str, str]], **params) -> Dict[str, str]:
+        params.pop("stream", None)
+        response = openai.ChatCompletion.create(
+            model=self.model_name,
+            messages=messages,
+            timeout=self.timeout,
+            stream=False,
+            **params
+        )
+        content = response["choices"][0]["message"]["content"]
+        return {"answer": content.strip()}
+
+    def chat(self, prompt: str, role: str = "user", **params) -> Dict[str, str]:
+        messages = [{"role": role, "content": prompt}]
+        return self.dialogue(messages, **params)
+
+    def close(self):
+        # Not needed for OpenAI API, present for interface compatibility
+        pass
+
     def __del__(self):
         self.close()
 

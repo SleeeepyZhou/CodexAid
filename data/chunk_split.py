@@ -108,7 +108,8 @@ def semantic_split(
         title = temp.pop(0).rstrip('\n')
         chunks = []
         for chunk in temp:
-            chunks.append(f"{title}.{chunk.rstrip('\n')}")
+            c = title + "." + chunk.strip()
+            chunks.append(c)
         return chunks
 
     if mode == 'section':
