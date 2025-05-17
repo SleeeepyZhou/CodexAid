@@ -4,16 +4,13 @@ from sqlalchemy import Column, BigInteger, Text, String, DateTime, func
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
 from typing import Optional
 
-import json
 import uuid
 import os, sys
 currunt_dir = os.path.dirname(__file__)
 sys.path.append(os.path.join(currunt_dir, ".."))
 from utils.embedding import EmbeddingModel
 from data.chunk_split import semantic_split
-
-with open(os.path.join(currunt_dir, "..", "config", "sql_config.json"), "r") as f:
-    OCEANBASE_CONFIG = json.load(f)
+from config import OCEANBASE_CONFIG
 
 def delete_database(database_name: str = "search_rag") -> None:
     conn = MySQLdb.connect(**OCEANBASE_CONFIG)

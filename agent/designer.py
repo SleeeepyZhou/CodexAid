@@ -14,7 +14,7 @@ class Designer(BaseAgent):
     def __init__(
             self, 
             task: str,
-            model = "Qwen/Qwen2.5-7B-Instruct", 
+            model = "Qwen/Qwen3-8B", 
             timeout = 30
             ):
         super().__init__(model, timeout)
