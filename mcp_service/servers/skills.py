@@ -1,6 +1,9 @@
-from mcp.server.fastmcp import FastMCP
+import os, sys
+currunt_dir = os.path.dirname(__file__)
+sys.path.append(os.path.join(currunt_dir, "..", ".."))
 
-mcp = FastMCP("Example")
+from mcp.server.fastmcp import FastMCP
+mcp = FastMCP("Skills")
 
 @mcp.tool() # MCP tool identification
 async def example_func(example_arg: str) -> str:
@@ -13,5 +16,5 @@ async def example_func(example_arg: str) -> str:
     print(example_arg)
     return example_arg # Return a string.
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     mcp.run(transport='stdio')

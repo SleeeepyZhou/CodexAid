@@ -1,52 +1,50 @@
 import os, sys
-import json
 from typing import Optional
 from contextlib import AsyncExitStack
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-def load_venv():
-    config_path = os.path.join(os.path.dirname(current_dir), "config/config.json")
-    with open(config_path, 'r') as file:
-        return json.load(file)["venv_path"]
-
 class MCPClient:
-    def __init__(self, server: str = ""):
+    def __init__(self, venv_path = None, server: str = ""):
+        self.venv_path = venv_path
         self.session: Optional[ClientSession] = None
         self.exit_stack = AsyncExitStack()
         self.server = server
         if not self.server:
-            self.server = os.path.join(current_dir, "server", "mcp_server.py")
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            self.server = os.path.join(current_dir, "mcp_server.py")
 
     async def connect_to_server(self):
         is_python = self.server.endswith('.py')
         is_js = self.server.endswith('.js')
         if not (is_python or is_js):
             raise ValueError("Server script must be a .py or .js file")
+        if not self.venv_path and is_python:
+            raise "No python venv"
             
-        command = "python" if is_python else "node"
-        venv_path = load_venv()
         env = os.environ.copy()
+        args=[]
         if is_python:
-            if venv_path:
+            if self.venv_path:
                 if sys.platform == 'win32':
-                    python_executable = os.path.join(venv_path, 'Scripts', 'python.exe')
-                    env['PATH'] = os.path.join(venv_path, 'Scripts') + os.pathsep + env['PATH']
+                    python_executable = os.path.join(self.venv_path, 'Scripts', 'python.exe')
+                    env['PATH'] = os.path.join(self.venv_path, 'Scripts') + os.pathsep + env['PATH']
                 else:
-                    python_executable = os.path.join(venv_path, 'bin', 'python')
-                    env['PATH'] = os.path.join(venv_path, 'bin') + os.pathsep + env['PATH']
+                    python_executable = os.path.join(self.venv_path, 'bin', 'python')
+                    env['PATH'] = os.path.join(self.venv_path, 'bin') + os.pathsep + env['PATH']
                 if not os.path.exists(python_executable):
                     raise ValueError(f"Python interpreter not found in virtual environment: {python_executable}")
                 command = python_executable
             else:
                 command = "python"
         else:
-            command = "node"
+            command = "npx"
+            # args.append("-y")
+        args.append(self.server)
 
         server_params = StdioServerParameters(
             command=command,
-            args=[self.server],
+            args=args,
             env=env
         )
         
@@ -100,9 +98,15 @@ class MCPClient:
         else:
             results = []
             for r in result.content:
-                results.append(r.model_dump(mode="json",by_alias=True))
+                r_dict = r.model_dump(mode="json",by_alias=True)
+                match r_dict.get("type"):
+                    case "text":
+                        results.append(r_dict.get("text"))
+                    case "image":
+                        results.append(r_dict.get("data"))
+                    case "resource":
+                        results.append(r_dict.get("resource"))
             return results
-
 
     async def cleanup(self):
         await self.exit_stack.aclose()
@@ -120,7 +124,7 @@ async def create_client() -> MCPClient:
         raise
 
 async def test():
-    client = MCPClient()
+    client = MCPClient(None, "D:/WorkData/HackthonSJTU/CodexAid/mcp_service/server/context7/dist/index.js")
     await client.connect_to_server()
     await client.cleanup()
 

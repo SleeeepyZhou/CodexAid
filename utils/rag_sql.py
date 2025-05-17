@@ -225,7 +225,7 @@ if __name__ == "__main__":
     
     # qurey test
 
-    results = rag.query("劳务以及加班", top_k=5)
+    results = rag.query("你好", top_k=5)
     t3 = time.time()
     print(f"RAGDatabase 查询耗时: {t3 - t2:.2f}秒")
     print("查询结果：")

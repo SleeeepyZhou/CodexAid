@@ -1,15 +1,14 @@
 [project]
-name = "qwen3"
+name = "codexaid"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "duckduckgo-search>=8.0.1",
+    "duckduckgo-search>=8.0.2",
     "fastapi>=0.115.12",
-    "gradio-client>=1.10.0",
-    "mcp>=1.6.0",
-    "modelscope>=1.25.0",
-    "openai>=1.76.2",
-    "pymysql>=1.0.2",
+    "mcp[cli]>=1.9.0",
+    "mysqlclient>=2.2.7",
+    "pyobvector>=0.2.11",
+    "requests>=2.32.3",
 ]

@@ -1,20 +1,28 @@
-import os
-from sentence_transformers import SentenceTransformer
+import json
+import requests
+
+import os, sys
+currunt_dir = os.path.dirname(__file__)
+sys.path.append(os.path.join(currunt_dir, ".."))
+from config import EMBEDDING
 
 class EmbeddingModel:
     def __init__(self):
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        model_path = os.path.normpath(os.path.join(current_dir, "..", "models", "bge-m3"))
-        model_path = model_path.replace("\\", "/")
+        self.url = EMBEDDING["url"]
+        self.header = {
+                        "Authorization": f"Bearer {EMBEDDING['key']}",
+                        "Content-Type": "application/json"
+                    }
 
-        if not os.path.exists(model_path):
-            raise FileNotFoundError(f"Model path does not exist: {model_path}")
-        
-        self.model = SentenceTransformer(model_path, local_files_only=True)
-
-    def embed(self, sentences: str) -> list[float]:
-        vec = self.model.encode(sentences)
-        vec_list = vec.tolist()
+    def embed(self, sentences: str):
+        payload = {
+            "model": "BAAI/bge-m3",
+            "input": sentences,
+            "encoding_format": "float"
+        }
+        response = requests.request("POST", self.url, json=payload, headers=self.header)
+        vec = response.json()
+        vec_list = vec["data"][0]["embedding"]
         return vec_list
 
 if __name__ == "__main__":
@@ -22,3 +30,4 @@ if __name__ == "__main__":
     embedding_model = EmbeddingModel()
     embeddings = embedding_model.embed(sentences)
     print(embeddings)
+
