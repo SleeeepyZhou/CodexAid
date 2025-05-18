@@ -27,6 +27,7 @@ class Designer(BaseAgent):
             format=True
             )
         data = self.find_json(response)
+        print(data)
         return data["tools"]
     
 if __name__ == '__main__':
