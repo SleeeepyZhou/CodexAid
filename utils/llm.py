@@ -7,7 +7,7 @@ from config import LLM
 class LLMModel:
     def __init__(
             self, 
-            model_name: str = "deepseek-r1",
+            model_name: str = "gpt-4o-mini",
             timeout: int = 30
         ):
         self.model_name = model_name
@@ -54,7 +54,7 @@ class LLMModel:
 
 if __name__ == "__main__":
 
-    llm_model = LLMModel(model_name="deepseek-r1", timeout=30)
+    llm_model = LLMModel()
     print("LLM model server started successfully.")
     result = llm_model.chat("你好！")
     print(result["answer"])

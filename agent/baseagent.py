@@ -23,12 +23,19 @@ class BaseAgent:
         return data
 
 
-    def oneshot(self, prompt: str):
-        return self.model.chat(prompt).get("answer")
+    def oneshot(self, prompt: str, format: bool = False, **params):
+        if format:
+            params["response_format"] = {"type": "json_object"}
+        response = self.model.chat(
+            prompt, 
+            "user", 
+            **params
+            ).get("answer")
+        return response
 
-    def chat(self, prompt: str):
+    def chat(self, prompt: str, **params):
         massage = self.history + [{"role": "user", "content": prompt}]
-        response = self.model.dialogue(massage).get("answer")
+        response = self.model.dialogue(massage, **params).get("answer")
         if response:
             self.history += [
                 {"role": "user", "content": prompt},
