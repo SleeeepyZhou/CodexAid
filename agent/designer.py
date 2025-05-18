@@ -22,11 +22,13 @@ class Designer(BaseAgent):
     
     def mcp_design(self):
         prompt = DESIGNER.format(user_prompt=self.task,info=load_deeppath())
-        response = self.oneshot(prompt)
-        print(response)
+        response = self.oneshot(
+            prompt,
+            format=True
+            )
         data = self.find_json(response)
         return data["tools"]
     
 if __name__ == '__main__':
-    d = Designer("需要一个开灯，同时设置番茄钟计时的MCP工具")
+    d = Designer("每次用户输入学习的时候就开始打开台灯")
     print(d.mcp_design())

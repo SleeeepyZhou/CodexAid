@@ -17,7 +17,7 @@ class Developer(BaseAgent):
             self, 
             task: str,
             tool: ToolInf,
-            model = "Qwen/Qwen2.5-Coder-7B-Instruct", 
+            model = "Qwen/Qwen3-8B", 
             timeout = 30
             ):
         super().__init__(model, timeout)
@@ -29,9 +29,12 @@ class Developer(BaseAgent):
 
     def initial_dev(self):
         prompt = DEVELOPER.format(task=self.task,info=load_deeppath())
-        response = self.oneshot(prompt)
-        print(response)
+        response = self.oneshot(
+            prompt,
+            format=True
+            )
         data = self.find_json(response)
+        print(data)
         self.code = data["codes"]
         self.test = data["test"]
 
@@ -40,8 +43,12 @@ class Developer(BaseAgent):
         result = await tester.run()
         test = f"Output: {result.output}\nError: {result.error}"
         prompt = DEV_CON.format(task=self.task,info=load_deeppath(),code=self.code,result=test)
-        response = self.oneshot(prompt)
+        response = self.oneshot(
+            prompt,
+            format=True
+            )
         data = self.find_json(response)
+        print(data)
         if not data["ready"]:
             self.code = data["codes"]
             self.test = data["test"]
@@ -63,12 +70,12 @@ class Developer(BaseAgent):
 if __name__ == "__main__":
     import asyncio
     dev = Developer(
-        "开发一个加法工具函数",
+        "创建一个自动化规则，当用户输入包含'学习'时触发，调用toggleLamp接口将台灯状态设置为on",
         ToolInf(
-            tool_name="add",
-            description="加法函数",
+            tool_name="trigger_study_mode",
+            description="检测到用户输入学习时，打开台灯",
             codes=""
         )
         )
     print(asyncio.run(dev.dev()))
-    print(dev.get_tool())
+    print(dev.get_tool().codes)
