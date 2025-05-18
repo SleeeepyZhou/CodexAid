@@ -12,7 +12,7 @@ import os, sys
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(current_dir, ".."))
 from config import TOOLPORT
-from scr.work import mcp_create
+from scr.work import mcp_create_async
 
 def load_agent_tools():
     config_path = os.path.join(current_dir, "agent_tools.json")
@@ -79,10 +79,10 @@ async def create_tool_task(tool_name: str, tool_args: Dict):
 class PromptPayload(BaseModel):
     prompt: str
 SKILLS = os.path.join(current_dir, "servers", "skills.py")
-app.post("/new_mcp")
+@app.post("/new_mcp")
 async def new_mcp(payload: PromptPayload):
     prompt = payload.prompt
-    server = mcp_create(prompt)
+    server = await mcp_create_async(prompt)
     with open(SKILLS, "w", encoding="utf-8") as skill:
         skill.write(server)
     result = await reset()
