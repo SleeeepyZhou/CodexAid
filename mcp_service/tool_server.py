@@ -1,6 +1,7 @@
 import json
 import uvicorn
 from typing import Dict
+from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
 
@@ -75,13 +76,17 @@ async def create_tool_task(tool_name: str, tool_args: Dict):
     finally:
         return {"status": status, "result": result}
 
+class PromptPayload(BaseModel):
+    prompt: str
 SKILLS = os.path.join(current_dir, "servers", "skills.py")
-@app.post("/new_mcp")
-async def new_mcp(prompt: str):
+app.post("/new_mcp")
+async def new_mcp(payload: PromptPayload):
+    prompt = payload.prompt
     server = mcp_create(prompt)
-    with open(SKILLS, "w") as skill:
+    with open(SKILLS, "w", encoding="utf-8") as skill:
         skill.write(server)
-    return await reset()
+    result = await reset()
+    return {"status": "ok", "data": result}
 
 if __name__ == "__main__":
     uvicorn.run(

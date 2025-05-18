@@ -10,8 +10,10 @@ import asyncio
 from typing import List
 
 async def mcp_create_async(task: str) -> str:
+    print(f"[Start] Task start {task}")
     designe = Designer(task)
     todo: List[dict] = designe.mcp_design()
+    print(f"[Designe] Designe completed.")
     async def _run_dev(tool: dict) -> str | None:
         dev = Developer(
             tool["dev_tasks"],
@@ -21,10 +23,12 @@ async def mcp_create_async(task: str) -> str:
                 codes=""
             )
         )
+        print(f"[Dev] Develop {tool['name']}")
         success = await dev.dev()
         return dev.get_tool() if success else None
 
     results = await asyncio.gather(*[_run_dev(tool) for tool in todo])
+    print(f"[Build] Build MCP server")
     codes = [code for code in results if code is not None]
     return build_mcp_server(codes)
 
