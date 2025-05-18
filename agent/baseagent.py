@@ -7,7 +7,8 @@ from utils.llm import LLMModel
 class BaseAgent:
     def __init__(
             self,
-            model: str = "Qwen/Qwen3-8B", 
+            # model: str = "Qwen/Qwen3-8B", 
+            model: str = "deepseek/deepseek-v3", 
             timeout: int = 30
             ):
         self.model = LLMModel(model, timeout)

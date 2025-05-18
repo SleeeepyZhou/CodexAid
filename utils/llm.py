@@ -23,6 +23,7 @@ class LLMModel:
         params.pop('stream', None)
         payload = {
             "model": self.model_name,
+            "response_format": {"type": "json_object"},
             "messages": messages,
             "stream": False,
             **params
