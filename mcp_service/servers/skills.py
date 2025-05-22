@@ -67,5 +67,24 @@ async def create_learning_task():
             "status": None
         }
 
+@mcp.tool(description='当检测到用户输入学习时，打开台灯', name='trigger_study_light')
+async def toggleLamp(status):
+    import requests
+    url = 'https://deeppath.cc/api/mcp/standard'
+    headers = {
+        'Authorization': 'Bearer dp_aea95abc22d9c360ecaecfe6a9f21e678388a6f7691befba',
+        'Content-Type': 'application/json'
+    }
+    payload = {
+        'functionCall': {
+            'name': 'toggleLamp',
+            'parameters': {
+                'status': status
+            }
+        }
+    }
+    response = requests.post(url, headers=headers, json=payload)
+    return response.json()
+
 if __name__ == '__main__':
     mcp.run(transport='stdio')
