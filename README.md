@@ -1,6 +1,6 @@
 # CodexAid - MCP Self-Learning Service
 
-A powerful service for building, managing, and deploying self-learning and self-generating MCP (Machine Comprehension Platform) agents.
+A powerful service for building, managing, and deploying self-learning and self-generating MCP (Model Context Protocol) agents.
 
 ## Overview
 
