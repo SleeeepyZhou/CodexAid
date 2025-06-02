@@ -3,8 +3,8 @@ currunt_dir = os.path.dirname(__file__)
 sys.path.append(os.path.join(currunt_dir, ".."))
 from agent.designer import Designer
 from agent.developer import Developer
-from utils.mcpbuilder import build_mcp_server
-from utils.mcpbuilder import ToolInf
+from utils.mcpbuild import build_mcp_server
+from utils.mcpbuild import ToolInf
 
 import asyncio
 from typing import List

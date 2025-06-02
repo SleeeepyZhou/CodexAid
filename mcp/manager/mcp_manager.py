@@ -2,8 +2,7 @@
 import json
 import os, sys
 current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(current_dir)
-from mcp_client import MCPClient
+from .mcp_client import MCPClient
 
 def load_serverlist():
     config_path = os.path.join(current_dir, "..", "server_list.json")

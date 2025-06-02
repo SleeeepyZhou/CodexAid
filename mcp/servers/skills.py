@@ -3,18 +3,18 @@ currunt_dir = os.path.dirname(__file__)
 sys.path.append(os.path.join(currunt_dir, "..", ".."))
 
 from mcp.server.fastmcp import FastMCP
-mcp = FastMCP("Skills")
+mcp = FastMCP("CodexAid-Skills")
 
 @mcp.tool() # MCP tool identification
-async def example_func(example_arg: str) -> str:
-    """Please provide a description of the function here.
-
-    Args:
-        example_arg: Describe the input here.
+async def example_tool(example_arg: str) -> str:
     """
-    # Here is the specific function of the function.
-    print(example_arg)
-    return example_arg # Return a string.
+    示例工具函数
+    Args:
+        example_arg: 示例参数
+    Returns:
+        示例返回值
+    """
+    return f"Hello from example tool: {example_arg}"
 
 @mcp.tool(description="通过用户指令，创建新的MCP", name="new_mcp")
 async def new_mcp(prompt: str):
@@ -32,6 +32,8 @@ async def new_mcp(prompt: str):
             return f"Error: {result["status"]}"
     except Exception as e:
         return f"Request failed: {e}"
+
+
 
 
 @mcp.tool(description='检测到用户说出‘学习的时候’时，创建或更新一个表示学习中的计时任务', name='start_timer_on_study')

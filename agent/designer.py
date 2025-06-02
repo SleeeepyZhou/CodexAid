@@ -1,8 +1,8 @@
 import os, sys
 currunt_dir = os.path.dirname(__file__)
 sys.path.append(os.path.join(currunt_dir, ".."))
-from agent.baseagent import BaseAgent
-from agent.prompt import DESIGNER
+from agent.base import BaseAgent
+from agent.templates import DESIGNER
 
 def load_deeppath():
     doc_path = os.path.join(currunt_dir, "..", "data", "books", "curl-commands.md")

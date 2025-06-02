@@ -5,26 +5,21 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 class MCPClient:
-    def __init__(self, venv_path = None, server: str = ""):
+    def __init__(self, server: str = "", venv_path = None):
         self.venv_path = venv_path
         self.session: Optional[ClientSession] = None
         self.exit_stack = AsyncExitStack()
         self.server = server
         if not self.server:
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            self.server = os.path.join(current_dir, "mcp_server.py")
+            raise ValueError("No server script provided. Please provide a valid server script path.")
 
     async def connect_to_server(self):
-        is_python = self.server.endswith('.py')
-        is_js = self.server.endswith('.js')
-        if not (is_python or is_js):
-            raise ValueError("Server script must be a .py or .js file")
-        if not self.venv_path and is_python:
-            raise "No python venv"
-            
+        if not (self.server.startswith("@") or os.path.exists(self.server)):
+            raise FileNotFoundError(f"Server script not found: {self.server}")
+
         env = os.environ.copy()
         args=[]
-        if is_python:
+        if self.server.endswith('.py'):
             if self.venv_path:
                 if sys.platform == 'win32':
                     python_executable = os.path.join(self.venv_path, 'Scripts', 'python.exe')
@@ -37,9 +32,13 @@ class MCPClient:
                 command = python_executable
             else:
                 command = "python"
-        else:
+        elif self.server.endswith(".js"):
+                command = "node"
+        elif self.server.startswith("@"):
             command = "npx"
-            # args.append("-y")
+            args = ["-y"]
+        else:
+            raise ValueError(f"Unsupported : {self.server}, Server script must be a .py or js")
         args.append(self.server)
 
         server_params = StdioServerParameters(
@@ -114,7 +113,7 @@ class MCPClient:
 
 # Test
 async def create_client() -> MCPClient:
-    client = MCPClient()
+    client = MCPClient(server="@upstash/context7-mcp")
     try:
         await client.connect_to_server()
         return client
@@ -124,8 +123,10 @@ async def create_client() -> MCPClient:
         raise
 
 async def test():
-    client = MCPClient(None, "D:/WorkData/HackthonSJTU/CodexAid/mcp_service/server/context7/dist/index.js")
+    client = MCPClient("@upstash/context7-mcp")
+    print("Connecting to server...")    
     await client.connect_to_server()
+    print("Connected to server")
     await client.cleanup()
 
 if __name__ == "__main__":

@@ -1,14 +1,13 @@
 [project]
 name = "codexaid"
 version = "0.1.0"
-description = "Add your description here"
+description = "Code codex aid ai. "
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "duckduckgo-search>=8.0.2",
     "fastapi>=0.115.12",
-    "mcp[cli]>=1.9.0",
-    "mysqlclient>=2.2.7",
-    "pyobvector>=0.2.11",
+    "mcp[cli]>=1.9.1",
+    "pymilvus>=2.5.10",
+    "python-dotenv>=1.1.0",
     "requests>=2.32.3",
 ]

@@ -7,15 +7,17 @@ from config import LLM
 class LLMModel:
     def __init__(
             self, 
-            model_name: str = "gpt-4o-mini",
-            timeout: int = 30
+            model_name: str = "Qwen/Qwen3-8B",
+            timeout: int = 30,
+            url: str = LLM["url"],
+            key: str = LLM["key"]
         ):
         self.model_name = model_name
         self.timeout = timeout
 
-        self.url = LLM["url"]
+        self.url = url
         self.header = {
-            "Authorization": f"Bearer {LLM['key']}",
+            "Authorization": f"Bearer {key}",
             "Content-Type": "application/json"
         }
 
@@ -28,13 +30,16 @@ class LLMModel:
             "stream": False,
             **params
         }
-        resp = requests.post(self.url, json=payload, headers=self.header, timeout=self.timeout)
-        resp.raise_for_status()
-        response = resp.json()
-        return {
-            "reasoning": response["choices"][0]["message"].get("reasoning_content"),
-            "answer": response["choices"][0]["message"].get("content")
-        }
+        try:
+            resp = requests.post(self.url, json=payload, headers=self.header, timeout=self.timeout)
+            resp.raise_for_status()
+            response = resp.json()
+            return {
+                "reasoning": response["choices"][0]["message"].get("reasoning_content"),
+                "answer": response["choices"][0]["message"].get("content")
+            }
+        except requests.exceptions.RequestException as e:
+            return {"reasoning": None, "answer": None}
 
     def chat(self, prompt: str, role: str = "user", **params) -> dict:
         """
@@ -58,18 +63,3 @@ if __name__ == "__main__":
     print("LLM model server started successfully.")
     result = llm_model.chat("你好！")
     print(result["answer"])
-
-    # print("开始 stream_chat 流式输出：")
-
-    # for chunk in llm_model.stream_chat("你好啊朋友！"):
-    #     reasoning, answer = chunk['reasoning'], chunk['answer']
-    #     line = f"[思考] {reasoning}"
-    #     if answer:
-    #         line += f" [答案] {answer}"
-    #     print(line, end='\r', flush=True)
-    #     reasoning = chunk.get("reasoning", "")
-    #     answer = chunk.get("answer", "")
-    #     if reasoning:
-    #         print(f"[思考] {reasoning}")
-    #     if answer:
-    #         print(f"[回复] {answer}")

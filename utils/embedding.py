@@ -1,4 +1,3 @@
-import json
 import requests
 
 import os, sys
@@ -29,5 +28,5 @@ if __name__ == "__main__":
     sentences = "This is an example sentence"
     embedding_model = EmbeddingModel()
     embeddings = embedding_model.embed(sentences)
-    print(embeddings)
+    print(len(embeddings))
 
