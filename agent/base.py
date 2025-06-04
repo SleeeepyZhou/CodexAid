@@ -2,16 +2,15 @@ import json
 import os, sys
 currunt_dir = os.path.dirname(__file__)
 sys.path.append(os.path.join(currunt_dir, ".."))
-from utils.llm import LLMModel
+from utils import LLMClient
 
 class BaseAgent:
     def __init__(
             self,
-            # model: str = "Qwen/Qwen3-8B", 
-            model: str = "deepseek/deepseek-v3", 
+            model: str = "Qwen/Qwen3-8B", 
             timeout: int = 30
             ):
-        self.model = LLMModel(model, timeout)
+        self.model = LLMClient(model, timeout)
         self.history = []
 
     @staticmethod
@@ -22,10 +21,8 @@ class BaseAgent:
         data = json.loads(json_str)
         return data
 
-
     def oneshot(self, prompt: str, format: bool = False, **params):
         if format:
-            # "response_format": {"type": "json_object"},
             params["response_format"] = {"type": "json_object"}
         response = self.model.chat(
             prompt, 

@@ -1,10 +1,9 @@
 import os, sys
 currunt_dir = os.path.dirname(__file__)
 sys.path.append(os.path.join(currunt_dir, ".."))
-from utils.codetest import CodeTester
-from utils.mcpbuild import ToolInf
 from agent.base import BaseAgent
 from agent.templates import DEVELOPER, DEV_CON
+from utils import ToolInf, CodeTester
 
 def load_deeppath():
     doc_path = os.path.join(currunt_dir, "..", "data", "books", "curl-commands.md")

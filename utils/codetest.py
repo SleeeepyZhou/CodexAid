@@ -27,7 +27,7 @@ class CodeResponse(BaseModel):
     error: str
     execution_time: float
 
-class CodeTester:
+class CodeTest:
     _global_pool = ThreadPoolExecutor(max_workers=100)
     _semaphore = asyncio.Semaphore(100)
 
@@ -76,9 +76,9 @@ class CodeTester:
         )
 
     async def run(self) -> CodeResponse:
-        async with CodeTester._semaphore:
+        async with CodeTest._semaphore:
             loop = asyncio.get_event_loop()
-            future = loop.run_in_executor(CodeTester._global_pool, self._task)
+            future = loop.run_in_executor(CodeTest._global_pool, self._task)
             try:
                 result = await asyncio.wait_for(future, self.timeout)
             except asyncio.TimeoutError:
@@ -93,7 +93,7 @@ print("开始测试：")
 if __name__ == '__main__':
     print("ismain")
 '''
-    executor = CodeTester(complex_code, timeout=5)
+    executor = CodeTest(complex_code, timeout=5)
     response = await executor.run()
     print('=== OUTPUT ===')
     print(response.output)
@@ -111,7 +111,7 @@ async def batch_test():
         'print("Task 4 start"); import sys; sys.stdout.write("Sys write in Task 4")',
         'print("Task 5 start"); print(llm.chat("测试一下"))'
     ]
-    executors = [CodeTester(code, timeout=30) for code in codes]
+    executors = [CodeTest(code, timeout=30) for code in codes]
     results = await asyncio.gather(*(exe.run() for exe in executors))
     for idx, res in enumerate(results, 1):
         print(f"--- Result of task {idx} ---")
