@@ -4,7 +4,7 @@ currunt_dir = os.path.dirname(__file__)
 sys.path.append(os.path.join(currunt_dir, ".."))
 from config import LLM
 
-class LLMModel:
+class LLMClient:
     def __init__(
             self, 
             model_name: str = "Qwen/Qwen3-8B",
@@ -25,7 +25,6 @@ class LLMModel:
         params.pop('stream', None)
         payload = {
             "model": self.model_name,
-            "response_format": {"type": "json_object"},
             "messages": messages,
             "stream": False,
             **params
@@ -58,8 +57,7 @@ class LLMModel:
 
 
 if __name__ == "__main__":
-
-    llm_model = LLMModel()
+    llm_model = LLMClient()
     print("LLM model server started successfully.")
-    result = llm_model.chat("你好！")
+    result = llm_model.chat("你好！你是谁？")
     print(result["answer"])

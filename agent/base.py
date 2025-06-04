@@ -25,6 +25,7 @@ class BaseAgent:
 
     def oneshot(self, prompt: str, format: bool = False, **params):
         if format:
+            # "response_format": {"type": "json_object"},
             params["response_format"] = {"type": "json_object"}
         response = self.model.chat(
             prompt, 

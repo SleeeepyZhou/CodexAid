@@ -13,7 +13,7 @@ class EmbeddingModel:
                         "Content-Type": "application/json"
                     }
 
-    def embed(self, sentences: str):
+    def embed(self, sentences: str) -> list:
         payload = {
             "model": "BAAI/bge-m3",
             "input": sentences,

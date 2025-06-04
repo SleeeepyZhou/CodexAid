@@ -6,8 +6,9 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.12",
+    "langchain-text-splitters>=0.3.8",
     "mcp[cli]>=1.9.1",
-    "pymilvus>=2.5.10",
+    "pymilvus>=2.4.2",
     "python-dotenv>=1.1.0",
     "requests>=2.32.3",
 ]
